@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { AccessModule } from './access/access.module';
 
 @Module({
   imports: [
@@ -23,7 +24,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
           '.env'
         ]
       }
-    )
+    ),
+    AccessModule
   ],
   controllers: [AppController],
   providers: [AppService],
