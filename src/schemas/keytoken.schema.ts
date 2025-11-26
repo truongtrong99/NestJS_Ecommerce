@@ -13,6 +13,9 @@ export class KeyToken {
     @Prop({ required: true })
     publicKey: string;
 
+    @Prop({ required: true })
+    privateKey: string;
+
     @Prop({ type: Array, default: [] })
     refreshToken: Array<any>;
 

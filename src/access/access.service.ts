@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { InjectModel } from "@nestjs/mongoose";
 import { genSaltSync, hashSync } from "bcryptjs";
-import { createPublicKey, generateKeyPairSync } from "crypto";
+import { randomBytes } from "crypto";
 import { Model } from "mongoose";
 import { SignupDTO } from "src/dto/signup.dto";
 import { Shop } from "src/schemas/shop.schema";
@@ -40,46 +40,42 @@ export class AccessService {
             });
 
             if (newShop) {
-                const { privateKey, publicKey } = generateKeyPairSync('rsa', {
-                    modulusLength: 4096,
-                    publicKeyEncoding: {
-                        type: 'spki',
-                        format: 'pem'
-                    },
-                    privateKeyEncoding: {
-                        type: 'pkcs8',
-                        format: 'pem'
-                    }
-                });
-                const publicKeyString = await this.keyTokenService.createKeyToken({
+                // Generate simple keys using randomBytes
+                const publicKey = randomBytes(64).toString('hex');
+                const privateKey = randomBytes(64).toString('hex');
+
+                const keyStore = await this.keyTokenService.createKeyToken({
                     userId: newShop._id.toString(),
-                    publicKey: publicKey as any
+                    publicKey,
+                    privateKey
                 });
 
-                if (!publicKeyString) {
+                if (!keyStore) {
                     return {
                         code: 'SERVER_ERROR',
                         message: 'Error generating key token',
                         status: 'error'
                     }
                 }
-                const publicKeyObject = createPublicKey(publicKeyString);
-                // console.log({ privateKey, publicKey }); // save collection key token
-                // create token pair
-                const accessToken = await this.jwtService.signAsync({ userId: newShop._id, email }, {
-                    algorithm: 'RS256',
-                    expiresIn: '2 days',
-                    privateKey: privateKey
-                });
-                const refreshToken = await this.jwtService.signAsync({ userId: newShop._id, email }, {
-                    algorithm: 'RS256',
-                    expiresIn: '7 days',
-                    privateKey: privateKey
-                });
+                // create token pair using HS256 algorithm with privateKey as secret
+                const accessToken = await this.jwtService.signAsync(
+                    { userId: newShop._id, email },
+                    {
+                        secret: privateKey,
+                        expiresIn: '2 days'
+                    }
+                );
+                const refreshToken = await this.jwtService.signAsync(
+                    { userId: newShop._id, email },
+                    {
+                        secret: privateKey,
+                        expiresIn: '7 days'
+                    }
+                );
+
                 try {
                     const decode = await this.jwtService.verifyAsync(accessToken, {
-                        secret: publicKeyString,
-                        algorithms: ['RS256']
+                        secret: privateKey
                     });
                     console.log('Decode verify', decode);
                 } catch (err) {

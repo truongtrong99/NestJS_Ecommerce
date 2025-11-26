@@ -7,15 +7,15 @@ import { KeyToken } from "src/schemas/keytoken.schema";
 export class KeyTokenService {
     constructor(@InjectModel(KeyToken.name) private keyTokenModel: Model<KeyToken>) { }
 
-    async createKeyToken({ userId, publicKey }: { userId: string, publicKey: any }) {
+    async createKeyToken({ userId, publicKey, privateKey }: { userId: string, publicKey: string, privateKey: string }) {
         try {
-            const publicKeyString = publicKey.toString();
             const tokens = await this.keyTokenModel.create({
                 user: userId,
-                publicKey: publicKeyString
+                publicKey,
+                privateKey
             });
 
-            return tokens ? publicKeyString : null;
+            return tokens ? tokens : null;
         } catch (error) {
             return error;
         }
