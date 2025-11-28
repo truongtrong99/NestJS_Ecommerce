@@ -1,11 +1,11 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { InjectModel } from "@nestjs/mongoose";
 import { genSaltSync, hashSync } from "bcryptjs";
 import { randomBytes } from "crypto";
 import { Model } from "mongoose";
 import { SignupDTO } from "src/dto/signup.dto";
-import { Shop } from "src/schemas/shop.schema";
+import { Shop, ShopDocument } from "src/schemas/shop.schema";
 import { KeyTokenService } from "src/services/keyToken.service";
 import { getInfoData } from "src/utils";
 
@@ -18,97 +18,102 @@ const RoleShop = {
 
 @Injectable()
 export class AccessService {
-    constructor(@InjectModel(Shop.name) private shopModel: Model<Shop>, private keyTokenService: KeyTokenService, private jwtService: JwtService) { }
+    constructor(@InjectModel(Shop.name) private shopModel: Model<ShopDocument>, private keyTokenService: KeyTokenService, private jwtService: JwtService) { }
+
+    private hashPassword(password: string): string {
+        const salt = genSaltSync(10);
+        return hashSync(password, salt);
+    }
+
+    private generateKeyPair(): { publicKey: string; privateKey: string } {
+        const publicKey = randomBytes(64).toString('hex');
+        const privateKey = randomBytes(64).toString('hex');
+        return { publicKey, privateKey };
+    }
+
+    private async createTokenPair(userId: string, email: string, privateKey: string): Promise<{ accessToken: string; refreshToken: string }> {
+        const accessToken = await this.jwtService.signAsync(
+            { userId, email },
+            {
+                secret: privateKey,
+                expiresIn: '2 days'
+            }
+        );
+        const refreshToken = await this.jwtService.signAsync(
+            { userId, email },
+            {
+                secret: privateKey,
+                expiresIn: '7 days'
+            }
+        );
+        return { accessToken, refreshToken };
+    }
+
+    private async validateToken(token: string, secret: string): Promise<void> {
+        try {
+            const decode = await this.jwtService.verifyAsync(token, { secret });
+            console.log('Decode verify', decode);
+        } catch (err) {
+            console.log('Error verify', err);
+        }
+    }
+
+    private async createNewShop(name: string, email: string, hashedPassword: string): Promise<ShopDocument> {
+        return await this.shopModel.create({
+            name,
+            email,
+            password: hashedPassword,
+            roles: [RoleShop.SHOP]
+        });
+    }
+
+    private async setupAuthentication(shop: ShopDocument): Promise<{ accessToken: string; refreshToken: string }> {
+        const { publicKey, privateKey } = this.generateKeyPair();
+
+        const keyStore = await this.keyTokenService.createKeyToken({
+            userId: shop._id.toString(),
+            publicKey,
+            privateKey
+        });
+
+        if (!keyStore) {
+            throw new BadRequestException('Error generating key token');
+        }
+
+        const tokens = await this.createTokenPair(shop._id.toString(), shop.email, privateKey);
+
+        // Validate the created access token
+        await this.validateToken(tokens.accessToken, privateKey);
+
+        return tokens;
+    }
 
     async signUp({ name, email, password }: SignupDTO) {
-        try {
-            const holderShop = await this.shopModel.findOne({ email }).lean();
-            if (holderShop) {
-                return {
-                    code: 'DUPLICATE_EMAIL',
-                    message: 'Email already registered',
-                    status: 'error'
-                }
-            }
-            const salt = genSaltSync(10);
-            const passworHash = await hashSync(password, salt);
-            const newShop = await this.shopModel.create({
-                name,
-                email,
-                password: passworHash,
-                roles: [RoleShop.SHOP]
-            });
-
-            if (newShop) {
-                // Generate simple keys using randomBytes
-                const publicKey = randomBytes(64).toString('hex');
-                const privateKey = randomBytes(64).toString('hex');
-
-                const keyStore = await this.keyTokenService.createKeyToken({
-                    userId: newShop._id.toString(),
-                    publicKey,
-                    privateKey
-                });
-
-                if (!keyStore) {
-                    return {
-                        code: 'SERVER_ERROR',
-                        message: 'Error generating key token',
-                        status: 'error'
-                    }
-                }
-                // create token pair using HS256 algorithm with privateKey as secret
-                const accessToken = await this.jwtService.signAsync(
-                    { userId: newShop._id, email },
-                    {
-                        secret: privateKey,
-                        expiresIn: '2 days'
-                    }
-                );
-                const refreshToken = await this.jwtService.signAsync(
-                    { userId: newShop._id, email },
-                    {
-                        secret: privateKey,
-                        expiresIn: '7 days'
-                    }
-                );
-
-                try {
-                    const decode = await this.jwtService.verifyAsync(accessToken, {
-                        secret: privateKey
-                    });
-                    console.log('Decode verify', decode);
-                } catch (err) {
-                    console.log('Error verify', err);
-                }
-
-                return {
-                    code: 201,
-                    message: 'Shop created successfully',
-                    metadata: {
-                        shop: getInfoData(['_id', 'name', 'email'], newShop),
-                        tokens: {
-                            accessToken,
-                            refreshToken
-                        }
-                    },
-                    status: 'success'
-                }
-
-            }
-
-            return {
-                code: 200,
-                message: 'Error creating shop',
-                metadata: null,
-            }
-
-        } catch (error) {
-            return {
-                code: 'ERROR',
-                message: error.message,
-                status: 'error'
-            }
+        // Check if shop already exists
+        const holderShop = await this.shopModel.findOne({ email }).lean();
+        if (holderShop) {
+            throw new BadRequestException('Shop with this email already exists');
         }
+
+        // Hash password and create new shop
+        const hashedPassword = this.hashPassword(password);
+        const newShop = await this.createNewShop(name, email, hashedPassword);
+
+        if (!newShop) {
+            throw new BadRequestException('Error creating shop');
+        }
+
+        // Setup authentication (keys and tokens)
+        const tokens = await this.setupAuthentication(newShop);
+
+        return {
+            code: 201,
+            message: 'Shop created successfully',
+            metadata: {
+                shop: getInfoData(['_id', 'name', 'email'], newShop),
+                tokens
+            },
+            status: 'success'
+        };
     }
 }
