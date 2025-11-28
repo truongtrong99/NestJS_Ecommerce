@@ -5,6 +5,7 @@ import { genSaltSync, hashSync } from "bcryptjs";
 import { randomBytes } from "crypto";
 import { Model } from "mongoose";
 import { SignupDTO } from "src/dto/signup.dto";
+import { CREATED } from "src/dto/success.response";
 import { Shop, ShopDocument } from "src/schemas/shop.schema";
 import { KeyTokenService } from "src/services/keyToken.service";
 import { getInfoData } from "src/utils";
@@ -106,14 +107,11 @@ export class AccessService {
         // Setup authentication (keys and tokens)
         const tokens = await this.setupAuthentication(newShop);
 
-        return {
-            code: 201,
-            message: 'Shop created successfully',
-            metadata: {
-                shop: getInfoData(['_id', 'name', 'email'], newShop),
-                tokens
-            },
-            status: 'success'
+        const metadata = {
+            shop: getInfoData(['_id', 'name', 'email'], newShop),
+            tokens
         };
+
+        return new CREATED({ message: 'Shop created successfully', metadata });
     }
 }
