@@ -50,11 +50,11 @@ export class AccessService {
     }
 
     private async validateToken(token: string, secret: string): Promise<void> {
-        try {
-            const decode = await this.jwtService.verifyAsync(token, { secret });
+        const decode = await this.jwtService.verifyAsync(token, { secret });
+        if (decode) {
             console.log('Decode verify', decode);
-        } catch (err) {
-            console.log('Error verify', err);
+        } else {
+            throw new BadRequestException('Invalid token');
         }
     }
 
