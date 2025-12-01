@@ -10,4 +10,10 @@ export class AccessController {
         const results = await this.accessService.signUp(signup);
         return results;
     }
+
+    @Post('login')
+    async login(@Body() loginDto: { email: string; password: string; refreshToken?: string | null }) {
+        const results = await this.accessService.login(loginDto);
+        return results;
+    }
 }

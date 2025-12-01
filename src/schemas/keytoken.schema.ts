@@ -17,8 +17,10 @@ export class KeyToken {
     privateKey: string;
 
     @Prop({ type: Array, default: [] })
-    refreshToken: Array<any>;
+    refreshTokensUsed: Array<any>;
 
+    @Prop({ type: String, required: true })
+    refreshToken: string;
 }
 
 export const KeyTokenSchema = SchemaFactory.createForClass(KeyToken);

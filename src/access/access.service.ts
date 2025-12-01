@@ -1,13 +1,14 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { InjectModel } from "@nestjs/mongoose";
-import { genSaltSync, hashSync } from "bcryptjs";
+import { compareSync, genSaltSync, hashSync } from "bcryptjs";
 import { randomBytes } from "crypto";
 import { Model } from "mongoose";
 import { SignupDTO } from "src/dto/signup.dto";
 import { CREATED } from "src/dto/success.response";
 import { Shop, ShopDocument } from "src/schemas/shop.schema";
 import { KeyTokenService } from "src/services/keyToken.service";
+import { ShopService } from "src/services/shop.service";
 import { getInfoData } from "src/utils";
 
 const RoleShop = {
@@ -19,7 +20,7 @@ const RoleShop = {
 
 @Injectable()
 export class AccessService {
-    constructor(@InjectModel(Shop.name) private shopModel: Model<ShopDocument>, private keyTokenService: KeyTokenService, private jwtService: JwtService) { }
+    constructor(@InjectModel(Shop.name) private shopModel: Model<ShopDocument>, private keyTokenService: KeyTokenService, private jwtService: JwtService, private shopService: ShopService) { }
 
     private hashPassword(password: string): string {
         const salt = genSaltSync(10);
@@ -71,17 +72,18 @@ export class AccessService {
     private async setupAuthentication(shop: ShopDocument): Promise<{ accessToken: string; refreshToken: string }> {
         const { publicKey, privateKey } = this.generateKeyPair();
 
+        const tokens = await this.createTokenPair(shop._id.toString(), shop.email, privateKey);
+
         const keyStore = await this.keyTokenService.createKeyToken({
             userId: shop._id.toString(),
             publicKey,
-            privateKey
+            privateKey,
+            refreshToken: tokens.refreshToken
         });
 
         if (!keyStore) {
             throw new BadRequestException('Error generating key token');
         }
-
-        const tokens = await this.createTokenPair(shop._id.toString(), shop.email, privateKey);
 
         // Validate the created access token
         await this.validateToken(tokens.accessToken, privateKey);
@@ -114,4 +116,46 @@ export class AccessService {
 
         return new CREATED({ message: 'Shop created successfully', metadata });
     }
+
+    async login({ email, password, refreshToken = null }: { email: string; password: string; refreshToken?: string | null }) {
+        try {
+            // Check email through findByEmail
+            const foundShop = await this.shopService.findShopByEmail(email);
+            if (!foundShop) {
+                throw new BadRequestException('Not found shop');
+            }
+
+            // Check if password matches
+            const isMatch = compareSync(password, foundShop.password);
+            if (!isMatch) {
+                throw new BadRequestException('Incorrect password');
+            }
+
+            // Create privateKey and publicKey
+            const { publicKey, privateKey } = this.generateKeyPair();
+
+            // Generate tokens
+            const tokens = await this.createTokenPair(foundShop._id.toString(), foundShop.email, privateKey);
+
+            // Create accessToken and refreshToken in db
+            await this.keyTokenService.createKeyToken({
+                userId: foundShop._id.toString(),
+                publicKey,
+                privateKey,
+                refreshToken: tokens.refreshToken
+            });
+
+            // Get data and return login
+            const metadata = {
+                shop: getInfoData(['_id', 'name', 'email'], foundShop),
+                tokens
+            };
+
+            return new CREATED({ message: 'Login successfully', metadata });
+        } catch (error) {
+            throw new BadRequestException('Error');
+        }
+    }
+
+
 }
