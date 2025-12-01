@@ -29,4 +29,12 @@ export class KeyTokenService {
     async findByEmail(email: string) {
         return await this.keyTokenModel.findOne({ email }).lean();
     }
+
+    async findByUserId(userId: string) {
+        return await this.keyTokenModel.findOne({ user: userId }).lean();
+    }
+
+    async deleteKeyById(id: string) {
+        return await this.keyTokenModel.deleteOne({ _id: id });
+    }
 } 

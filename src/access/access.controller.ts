@@ -1,4 +1,5 @@
-import { Body, Controller, Param, Post } from '@nestjs/common';
+import { Body, Controller, Param, Post, Req } from '@nestjs/common';
+import type { Request } from 'express';
 import { AccessService } from './access.service';
 import { SignupDTO } from 'src/dto/signup.dto';
 
@@ -14,6 +15,12 @@ export class AccessController {
     @Post('login')
     async login(@Body() loginDto: { email: string; password: string; refreshToken?: string | null }) {
         const results = await this.accessService.login(loginDto);
+        return results;
+    }
+
+    @Post('logout')
+    async logout(@Req() req: Request) {
+        const results = await this.accessService.logout(req['keyStore']);
         return results;
     }
 }

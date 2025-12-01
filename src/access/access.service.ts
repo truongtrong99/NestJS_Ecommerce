@@ -157,5 +157,16 @@ export class AccessService {
         }
     }
 
+    async logout(keyStore: any) {
+        try {
+            const delKey = await this.keyTokenService.deleteKeyById(keyStore._id);
+            return {
+                message: 'Logout successfully',
+                data: delKey
+            };
+        } catch (error) {
+            throw new BadRequestException('Error during logout');
+        }
+    }
 
 }

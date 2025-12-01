@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { AccessController } from './access.controller';
 import { AccessService } from './access.service';
 import { MongooseModule } from '@nestjs/mongoose';
@@ -7,10 +7,17 @@ import { JwtService } from '@nestjs/jwt';
 import { KeyTokenService } from 'src/services/keyToken.service';
 import { KeyToken, KeyTokenSchema } from 'src/schemas/keytoken.schema';
 import { ShopService } from 'src/services/shop.service';
+import { AuthenticationMiddleware } from 'src/middlewares/auth.middleware';
 
 @Module({
   imports: [MongooseModule.forFeature([{ name: Shop.name, schema: ShopSchema }, { name: KeyToken.name, schema: KeyTokenSchema }])],
   controllers: [AccessController],
   providers: [AccessService, JwtService, KeyTokenService, ShopService],
 })
-export class AccessModule { }
+export class AccessModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(AuthenticationMiddleware)
+      .forRoutes('v1/api/shop/logout');
+  }
+}
