@@ -6,9 +6,6 @@ export type ProductDocument = HydratedDocument<Product>;
 
 @Schema({ timestamps: true })
 export class Product {
-    @Prop({ type: Types.ObjectId, auto: true })
-    _id: Types.ObjectId;
-
     @Prop({ required: true })
     product_name: string;
 
@@ -31,7 +28,7 @@ export class Product {
     product_type: string;
 
     @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Shop', required: true })
-    user: Shop;
+    product_shop: Shop;
 
     @Prop({ type: mongoose.Schema.Types.Mixed, required: true })
     product_attributes: any;

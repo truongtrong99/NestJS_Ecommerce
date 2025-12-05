@@ -5,7 +5,7 @@ import { compareSync, genSaltSync, hashSync } from "bcryptjs";
 import { randomBytes } from "crypto";
 import { Model } from "mongoose";
 import { SignupDTO } from "src/dto/signup.dto";
-import { CREATED } from "src/dto/success.response";
+import { CREATED } from "src/model/success.response";
 import { Shop, ShopDocument } from "src/schemas/shop.schema";
 import { KeyTokenService } from "src/services/keyToken.service";
 import { ShopService } from "src/services/shop.service";

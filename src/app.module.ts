@@ -13,6 +13,7 @@ import { AuthenticationMiddleware } from './middlewares/auth.middleware';
 import { Shop, ShopSchema } from './schemas/shop.schema';
 import { KeyTokenService } from './services/keyToken.service';
 import { KeyToken, KeyTokenSchema } from './schemas/keytoken.schema';
+import { ProductModule } from './product/product.module';
 
 @Module({
   imports: [
@@ -37,7 +38,8 @@ import { KeyToken, KeyTokenSchema } from './schemas/keytoken.schema';
       global: true, // Makes JwtService available globally
     }),
     MongooseModule.forFeature([{ name: ApiKey.name, schema: ApiKeySchema }, { name: Shop.name, schema: ShopSchema }, { name: KeyToken.name, schema: KeyTokenSchema }]),
-    AccessModule
+    AccessModule,
+    ProductModule
   ],
   controllers: [AppController],
   providers: [AppService, KeyTokenService],
@@ -45,7 +47,7 @@ import { KeyToken, KeyTokenSchema } from './schemas/keytoken.schema';
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
-      .apply(ApiKeyMiddleware, createPermissionMiddleware('0000'))
+      .apply(ApiKeyMiddleware, createPermissionMiddleware('0000'), AuthenticationMiddleware)
       .forRoutes('*');
   }
 }
