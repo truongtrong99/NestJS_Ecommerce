@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { IProduct } from 'src/model/product/IProduct';
 import { Product, ProductDocument } from 'src/schemas/product/product.schema';
 @Injectable()
@@ -35,7 +35,7 @@ export class ProductService {
         this.product_attributes = data.product_attributes;
     }
 
-    async createProduct(): Promise<Product> {
-        return await this.productModel.create(this);
+    async createProduct(productId: Types.ObjectId): Promise<Product> {
+        return await this.productModel.create({ ...this, _id: productId });
     }
 }

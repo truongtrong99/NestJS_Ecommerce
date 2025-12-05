@@ -15,13 +15,13 @@ export class ClothingService extends ProductService {
     }
 
     async createProduct() {
-        const newClothing = await this.clothingModel.create(this.product_attributes);
+        const newClothing = await this.clothingModel.create({
+            ...this.product_attributes,
+            product_shop: this.product_shop
+        });
         if (!newClothing) throw new BadRequestException('Create clothing failed');
 
-        // Set the clothing document _id as product_attributes
-        this.product_attributes = newClothing._id;
-
-        const newProduct = await super.createProduct();
+        const newProduct = await super.createProduct(newClothing._id);
         if (!newProduct) throw new BadRequestException('Create product failed');
         return newProduct;
     }

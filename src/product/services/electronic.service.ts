@@ -15,13 +15,13 @@ export class ElectronicService extends ProductService {
     }
 
     async createProduct() {
-        const newElectronic = await this.electronicModel.create(this.product_attributes);
+        const newElectronic = await this.electronicModel.create({
+            ...this.product_attributes,
+            product_shop: this.product_shop
+        });
         if (!newElectronic) throw new BadRequestException('Create electronic failed');
 
-        // Set the electronic document _id as product_attributes
-        this.product_attributes = newElectronic._id;
-
-        const newProduct = await super.createProduct();
+        const newProduct = await super.createProduct(newElectronic._id);
         if (!newProduct) throw new BadRequestException('Create product failed');
         return newProduct;
     }
